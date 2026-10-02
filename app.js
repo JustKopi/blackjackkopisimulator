@@ -19,7 +19,12 @@ const sample = LotteryMath.sourcePrizes.map(({ amount, count }) => ({
   chance: (count / LotteryMath.SOURCE_SIZE) * 100,
 }));
 const percent = (value) =>
-  `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 10 }).format(value)}%`;
+  `${new Intl.NumberFormat(
+    "hu-HU",
+    value > 0 && value < 1e-8
+      ? { notation: "scientific", maximumSignificantDigits: 4 }
+      : { maximumFractionDigits: 10 },
+  ).format(value)}%`;
 let runs = 0;
 
 function notify(message, error = false) {
@@ -124,6 +129,9 @@ function refresh() {
     byId("expectedPayout").textContent = money(forecast.payout);
     byId("expectedProfit").textContent = money(forecast.profit);
     byId("expectedLoss").textContent = money(forecast.loss);
+    const economy = LotteryMath.analyze(config);
+    byId("ownEconomy").textContent =
+      `Visszaosztás (RTP): ${economy.rtp === null ? "—" : percent(economy.rtp)} · Ház maradéka: ${economy.rtp === null ? "—" : percent(100 - economy.rtp)} · Jegyár visszanyerése: ${percent(economy.refundChance)} · Jegyár feletti nyeremény: ${percent(economy.gainChance)}`;
     byId("gamePrice").textContent = money(config.price);
     byId("gameGlobalChance").textContent = percent(config.winChance);
     byId("gameChance").textContent = percent(forecast.effectiveChance);
@@ -156,6 +164,7 @@ function refresh() {
       byId(id).textContent = "—";
     }
     byId("gameContent").hidden = true;
+    byId("ownEconomy").textContent = "";
     byId("gameError").hidden = false;
     for (const id of ["simulate", "save", "copy", "download"])
       byId(id).disabled = true;
@@ -282,3 +291,95 @@ function runSample() {
   }
 }
 byId("sampleSimulate").addEventListener("click", runSample);
+
+let designedConfig;
+const shortPercent = (value) =>
+  `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(value)}%`;
+const preciseNumber = (value) =>
+  new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 2 }).format(value);
+const preciseMoney = (value) => `${preciseNumber(value)} $`;
+const designInputs = [
+  "designPrice",
+  "designMax",
+  "designMargin",
+  "designHit",
+  "designJackpot",
+  "designQuantity",
+];
+
+function refreshDesign() {
+  designedConfig = undefined;
+  byId("designResult").textContent = "";
+  try {
+    const config = LotteryMath.design({
+      price: byId("designPrice").valueAsNumber,
+      maxPrize: byId("designMax").valueAsNumber,
+      margin: byId("designMargin").valueAsNumber,
+      hitChance: byId("designHit").valueAsNumber,
+      jackpotEvery: byId("designJackpot").valueAsNumber,
+    });
+    config.quantity = byId("designQuantity").valueAsNumber;
+    const forecast = LotteryMath.analyze(config);
+    byId("designRtp").textContent = shortPercent(forecast.rtp);
+    byId("designActualMargin").textContent = shortPercent(100 - forecast.rtp);
+    byId("designRefund").textContent = shortPercent(forecast.refundChance);
+    byId("designGain").textContent = shortPercent(forecast.gainChance);
+    byId("designLose").textContent = shortPercent(100 - forecast.payoutChance);
+    byId("designMean").textContent = preciseMoney(forecast.perTicket);
+    byId("designRows").replaceChildren();
+    config.prizes.forEach((prize) =>
+      tableRow(byId("designRows"), [
+        money(prize.amount),
+        percent(prize.chance),
+        preciseNumber(100 / prize.chance),
+        preciseMoney((prize.amount * prize.chance) / 100),
+      ]),
+    );
+    tableRow(byId("designRows"), [
+      "Nem nyer · 0 $",
+      percent(forecast.losers),
+      forecast.losers > 0 ? preciseNumber(100 / forecast.losers) : "—",
+      "0 $",
+    ]);
+    byId("designForecast").textContent =
+      `${integer(config.quantity)} jegynél: bevétel ${money(forecast.revenue)}, várható kifizetés ${money(forecast.payout)}, várható nettó maradék ${money(forecast.net)}.`;
+    const jackpot = config.prizes[0];
+    const seenChance =
+      -Math.expm1(config.quantity * Math.log1p(-jackpot.chance / 100)) * 100;
+    byId("designRisk").textContent =
+      `Legalább egy főnyeremény esélye ebben a futtatásban: ${shortPercent(seenChance)}. A teljes kifizetés szórása: ${money(forecast.standardDeviation)}. Ez az ingadozás mértéke, nem veszteségi korlát vagy garantált tartomány. Rövid távon pozitív profitcél mellett is lehet veszteség.`;
+    byId("designError").textContent = "";
+    byId("designContent").hidden = false;
+    byId("applyDesign").disabled = false;
+    byId("simulateDesign").disabled = false;
+    designedConfig = config;
+  } catch (error) {
+    byId("designError").textContent = error.message;
+    byId("designContent").hidden = true;
+    byId("applyDesign").disabled = true;
+    byId("simulateDesign").disabled = true;
+  }
+}
+
+designInputs.forEach((id) => byId(id).addEventListener("input", refreshDesign));
+byId("applyDesign").addEventListener("click", () => {
+  if (!designedConfig) return;
+  load(designedConfig);
+  showTab("planner");
+  notify(
+    "A számolt játékbeli terv betöltve. A százalékokat továbbra is szerkesztheted.",
+  );
+});
+byId("simulateDesign").addEventListener("click", () => {
+  if (!designedConfig) return;
+  const result = LotteryMath.simulate(designedConfig);
+  byId("designResult").textContent =
+    `Kifizetés: ${money(result.payout)} · Nyerő: ${integer(result.winners)} / ${integer(designedConfig.quantity)} · Ház profitja: ${money(result.profit)} · Ház vesztesége: ${money(result.loss)}`;
+});
+document.querySelectorAll("[data-design-margin]").forEach((button) => {
+  button.addEventListener("click", () => {
+    byId("designMargin").value = button.dataset.designMargin;
+    refreshDesign();
+  });
+});
+refreshDesign();

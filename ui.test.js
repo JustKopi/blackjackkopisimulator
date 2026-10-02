@@ -45,6 +45,31 @@ assert.equal(
   JSON.parse(w.localStorage.getItem("lottery-settings")).prizes.length,
   14,
 );
+w.document.querySelector('[data-tab="designer"]').click();
+assert.equal(el("designer").hidden, false);
+assert.equal(el("designRtp").textContent, "40%");
+assert.equal(el("designActualMargin").textContent, "60%");
+assert.equal(el("designMean").textContent.replace(/\s/g, ""), "440$");
+el("simulateDesign").click();
+assert.ok(el("designResult").textContent.includes("Kifizetés"));
+el("designMargin").value = "61";
+el("designMargin").dispatchEvent(new w.Event("input"));
+assert.equal(el("applyDesign").disabled, true);
+assert.equal(el("designContent").hidden, true);
+el("designMargin").value = "20";
+el("designMargin").dispatchEvent(new w.Event("input"));
+assert.equal(el("designRtp").textContent, "80%");
+el("applyDesign").click();
+assert.equal(el("planner").hidden, false);
+const applied = JSON.parse(el("gameConfig").textContent);
+assert.equal(applied.prizes[0].amount, 50000);
+assert.ok(Math.abs(applied.actualWinChancePercent - 35) < 1e-8);
+assert.ok(el("ownEconomy").textContent.includes("80%"));
+// Loading a design changes the editor, but does not overwrite saved settings.
+assert.equal(
+  JSON.parse(w.localStorage.getItem("lottery-settings")).prizes[0].amount,
+  50000000,
+);
 dom.window.close();
 console.log(
   "UI checks passed: original saved percentages, tabs, independent Bronze simulation, rare prizes and validation.",

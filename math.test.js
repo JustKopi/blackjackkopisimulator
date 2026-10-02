@@ -32,3 +32,48 @@ assert.equal(
 console.log(
   "Math checks passed: fractional chances, global gate, original distribution and rare prize.",
 );
+
+const targets = {
+  price: 1100,
+  maxPrize: 50000,
+  margin: 60,
+  hitChance: 35,
+  jackpotEvery: 10000,
+};
+for (const margin of [0, 20, 39.09, 60]) {
+  const plan = math.design({ ...targets, margin });
+  const forecast = math.analyze(plan);
+  assert.ok(Math.abs(forecast.rtp - (100 - margin)) < 1e-8);
+  assert.ok(Math.abs(forecast.payoutChance - 35) < 1e-8);
+  assert.equal(plan.prizes[0].amount, 50000);
+  assert.equal(plan.prizes[0].chance, 0.01);
+  assert.ok(
+    plan.prizes.every((prize) => prize.amount >= 1100 && prize.amount <= 50000),
+  );
+  assert.ok(Math.abs(forecast.refundChance + forecast.gainChance - 35) < 1e-8);
+  assert.ok(forecast.standardDeviation > 0);
+}
+for (const change of [
+  { margin: 61 },
+  { hitChance: 80 },
+  { jackpotEvery: 2 },
+  { maxPrize: 50001 },
+  { maxPrize: 1000 },
+  { price: NaN },
+  { hitChance: 0 },
+]) {
+  assert.throws(() => math.design({ ...targets, ...change }));
+}
+const simple = math.analyze({
+  price: 10,
+  quantity: 100,
+  winChance: 100,
+  prizes: [{ amount: 10, chance: 50 }],
+});
+assert.equal(simple.standardDeviation, 50);
+assert.equal(simple.refundChance, 50);
+assert.equal(simple.gainChance, 0);
+assert.equal(simple.rtp, 50);
+console.log(
+  "Design checks passed: payout budget, jackpot cap, hit rate, infeasible targets and variance.",
+);

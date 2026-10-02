@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Sorsjegy beállítások</title>
-    <link rel="stylesheet" href="style.css?v=3" />
-    <script src="math.js?v=3" defer></script>
-    <script src="app.js?v=3" defer></script>
+    <link rel="stylesheet" href="style.css?v=4" />
+    <script src="math.js?v=4" defer></script>
+    <script src="app.js?v=4" defer></script>
   </head>
   <body>
     <main class="workspace">
@@ -20,6 +20,7 @@
           Saját beállítások
         </button>
         <button data-tab="sample">Valódi sorsjegy · Bronz 218</button>
+        <button data-tab="designer">Játékbeli tervező · 50K</button>
         <button data-tab="game">Játékba másolható értékek</button>
       </nav>
       <p id="message" role="status" aria-live="polite"></p>
@@ -93,6 +94,7 @@
             <p class="hint">
               Minden jegy független húzás. A várható eredmény hosszú távú átlag.
             </p>
+            <p id="ownEconomy" class="hint"></p>
             <button id="simulate" class="primary run">
               Szimuláció indítása
             </button>
@@ -187,6 +189,147 @@
         <button id="loadSample" class="secondary">
           Bronz százalékok betöltése a saját beállításokba
         </button>
+      </section>
+      <section id="designer" class="tab-page panel" hidden>
+        <span class="eyebrow">IRL MINTÁBÓL JÁTÉKBELI TERV</span>
+        <h2>Nyereményplafon, találatok és házprofit</h2>
+        <p>
+          Az eredeti nyereményeket a jegyár és a főnyeremény közé alakítjuk, a
+          százalékokat pedig a kifizetési kerethez igazítjuk. A kisebb nyeremény
+          legalább a jegyárat visszaadja.
+        </p>
+        <div class="sale-inputs">
+          <label
+            >Jegyár ($)<input
+              id="designPrice"
+              type="number"
+              min="1"
+              max="1000000000"
+              step="any"
+              value="1100"
+          /></label>
+          <label
+            >Legnagyobb nyeremény ($, maximum 50 000)<input
+              id="designMax"
+              type="number"
+              min="1"
+              max="50000"
+              step="any"
+              value="50000"
+          /></label>
+          <label
+            >Ház célzott maradéka (%, maximum 60)<input
+              id="designMargin"
+              type="number"
+              min="0"
+              max="60"
+              step="any"
+              value="60"
+          /></label>
+          <label
+            >Bármilyen nyeremény esélye (%)<input
+              id="designHit"
+              type="number"
+              min="0.01"
+              max="100"
+              step="any"
+              value="35"
+          /></label>
+          <label
+            >Főnyeremény átlagosan ennyi jegyenként<input
+              id="designJackpot"
+              type="number"
+              min="2"
+              max="1000000000000"
+              step="any"
+              value="10000"
+          /></label>
+          <label
+            >Jegyek az összehasonlításhoz<input
+              id="designQuantity"
+              type="number"
+              min="1"
+              max="1000000"
+              step="1"
+              value="1000"
+          /></label>
+        </div>
+        <p class="hint">
+          A főnyeremény gyakorisága átlag, nem garantált kiosztás. A nem nyerő
+          arány és a házprofit külön érték. A 60%-os plafon a hosszú távú
+          várható maradékra vonatkozik; egy futtatás eredménye eltérhet. A
+          maradék egyéb költségeket nem tartalmaz.
+        </p>
+        <p id="designError" class="negative" role="status"></p>
+        <div class="section-heading">
+          <button data-design-margin="60">60% házmaradék</button>
+          <button data-design-margin="40">40% házmaradék</button>
+          <button data-design-margin="20">20% házmaradék</button>
+        </div>
+        <div id="designContent">
+          <div class="metrics">
+            <div>
+              <span>Visszaosztás (RTP)</span><strong id="designRtp"></strong>
+            </div>
+            <div>
+              <span>Ház maradéka</span><strong id="designActualMargin"></strong>
+            </div>
+            <div>
+              <span>Jegyár visszanyerése</span
+              ><strong id="designRefund"></strong>
+            </div>
+            <div>
+              <span>Jegyár feletti nyeremény</span
+              ><strong id="designGain"></strong>
+            </div>
+            <div><span>Nem nyer</span><strong id="designLose"></strong></div>
+            <div>
+              <span>Kifizetés átlagosan / jegy</span
+              ><strong id="designMean"></strong>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nyeremény ($)</th>
+                  <th>Esély (%)</th>
+                  <th>Átlagosan 1 / ennyi jegy</th>
+                  <th>Kifizetési keret / jegy</th>
+                </tr>
+              </thead>
+              <tbody id="designRows"></tbody>
+            </table>
+          </div>
+          <p id="designForecast"></p>
+          <p id="designRisk" class="hint"></p>
+          <div class="notice">
+            A terv a megadott matematikai célokat teljesíti. A vásárlási kedvet
+            tényleges játékosadatokkal lehet összehasonlítani. A jegyár
+            visszanyerése nem plusz nyereség: a kisebb találatokat és a valódi
+            pluszt külön figyeld.
+          </div>
+          <button id="applyDesign" class="primary">
+            Számolt terv betöltése a saját beállításokba
+          </button>
+          <button id="simulateDesign" class="secondary">
+            Terv szimulációja
+          </button>
+          <p id="designResult" aria-live="polite"></p>
+        </div>
+        <details>
+          <summary>Hogyan számolja?</summary>
+          <p>
+            Kifizetési keret = jegyár × (1 − profitcél / 100). Főnyeremény
+            esélye = 100 / átlagos jegyszám. A többi találat százalékát úgy
+            osztja el, hogy az összes nyeremény × esély / 100 összege pontosan a
+            kifizetési keret legyen. Az eredeti összegeket logaritmikus skálán
+            képezi le, az eredeti darabszámokból induló súlyokat pedig
+            módosítja. Ez játékhoz igazított eloszlás, nem az eredeti százalékok
+            változatlan másolata. Ha a célok együtt lehetetlenek, hibaüzenetet
+            kapsz.
+          </p>
+        </details>
       </section>
       <section id="game" class="tab-page panel" hidden>
         <span class="eyebrow">AZ AKTUÁLIS SAJÁT BEÁLLÍTÁSAID</span>
