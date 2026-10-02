@@ -3,68 +3,225 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sorsjegy beállítások</title>
-    <link rel="stylesheet" href="style.css" />
-    <script src="math.js" defer></script>
-    <script src="app.js" defer></script>
+    <title>Sorsjegy tervező · 100 darabos csomag</title>
+    <link rel="stylesheet" href="style.css?v=2" />
+    <script src="math.js?v=2" defer></script>
+    <script src="app.js?v=2" defer></script>
   </head>
   <body>
     <main class="workspace">
-      <section class="panel settings" id="settings">
-        <button class="close danger" id="close" aria-label="Beállítások bezárása">×</button>
-        <header>
-          <h1>SORSJEGY BEÁLLÍTÁSOK</h1>
-          <p>NYERÉSI ESÉLYEK ÉS NYEREMÉNYEK</p>
-        </header>
-        <fieldset>
-          <legend>NYERÉSI ESÉLY</legend>
-          <div class="chance-input">
-            <input id="winChance" type="number" min="0" max="100" step="any" value="100" aria-label="Nyerési esély százalékban" />
-            <span>%</span>
-          </div>
-        </fieldset>
-        <fieldset class="prizes">
+      <header>
+        <span class="eyebrow">SORSJEGY TERVEZŐ</span>
+        <h1>100 jegy. Egy átlátható terv.</h1>
+        <p>Add meg, melyik nyereményből hány darab legyen a csomagban.</p>
+      </header>
+      <nav class="tabs" aria-label="Oldalak">
+        <button data-tab="planner" aria-current="page">
+          Saját beállítások
+        </button>
+        <button data-tab="sample">+ Minta · Bronz 218</button>
+        <button data-tab="game">Játékba másolható értékek</button>
+      </nav>
+      <p id="message" role="status" aria-live="polite"></p>
+      <section id="planner" class="tab-page">
+        <div class="layout">
+          <section class="panel">
+            <div class="section-heading">
+              <h2>Nyeremények 100 jegyre</h2>
+              <button id="add">+ Új sor</button>
+            </div>
+            <p class="hint">
+              1 darab a csomagban = 1% esély. A maradék jegy nem nyer.
+            </p>
+            <div class="column-labels">
+              <span>Nyeremény ($)</span><span>Darab / 100 jegy</span
+              ><span></span>
+            </div>
+            <div id="rows"></div>
+            <div class="pack-summary">
+              <span>Nyerő: <strong id="total"></strong></span
+              ><span>Nem nyerő: <strong id="losers"></strong></span>
+            </div>
+            <button id="save" class="secondary">Beállítások mentése</button>
+          </section>
+          <section class="panel">
+            <h2>Bevétel és kifizetés</h2>
+            <div class="sale-inputs">
+              <label
+                >Jegyár ($)<input
+                  id="price"
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="1"
+                  value="1100"
+              /></label>
+              <label
+                >Eladott jegyek (db)<input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  max="100000"
+                  step="1"
+                  value="100"
+              /></label>
+            </div>
+            <div class="metrics">
+              <div><span>Bevétel</span><strong id="revenue">—</strong></div>
+              <div>
+                <span>Tervezett kifizetés</span
+                ><strong id="expectedPayout">—</strong>
+              </div>
+              <div>
+                <span>Ház tervezett profitja</span
+                ><strong id="expectedProfit" class="positive">—</strong>
+              </div>
+              <div>
+                <span>Ház tervezett vesztesége</span
+                ><strong id="expectedLoss" class="negative">—</strong>
+              </div>
+            </div>
+            <p class="hint">
+              Teljes 100-as csomagoknál a terv pontos. Részcsomagnál átlagos
+              eredmény, egész dollárra kerekítve.
+            </p>
+            <label
+              >Szimuláció módja
+              <select id="mode">
+                <option value="pack">
+                  100-as csomag · rögzített nyeremények
+                </option>
+                <option value="independent">
+                  Játékbeli húzás · minden jegy külön
+                </option>
+              </select>
+            </label>
+            <p id="modeNote" class="hint"></p>
+            <button id="simulate" class="primary run">
+              Szimuláció indítása
+            </button>
+          </section>
+        </div>
+        <section id="result" class="panel result" hidden aria-live="polite">
           <div class="section-heading">
-            <h2>NYEREMÉNYEK</h2>
-            <button id="add" class="add" aria-label="Új nyeremény hozzáadása">+</button>
+            <h2>Szimuláció eredménye</h2>
+            <span id="runNumber"></span>
           </div>
-          <div class="column-labels"><span>ÖSSZEG ($)</span><span>ESÉLY (%)</span><span></span></div>
-          <div id="rows"></div>
-          <p class="hint">Az esélyek százalékok. A fennmaradó rész nem nyer. A felső esély minden nyeremény esélyét megszorozza.</p>
-          <div class="settings-footer">
-            <span>ÖSSZESEN <strong id="total">29.0%</strong></span>
-            <button id="save" class="primary">MENTÉS</button>
+          <div class="metrics result-metrics">
+            <div>
+              <span>Kifizetett nyeremény</span
+              ><strong id="actualPayout"></strong>
+            </div>
+            <div><span>Nyerő jegyek</span><strong id="winners"></strong></div>
+            <div>
+              <span>Ház profitja</span
+              ><strong id="profit" class="positive"></strong>
+            </div>
+            <div>
+              <span>Ház vesztesége</span
+              ><strong id="loss" class="negative"></strong>
+            </div>
           </div>
-        </fieldset>
-        <p id="message" role="status" aria-live="polite"></p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nyeremény</th>
+                  <th>Darab</th>
+                  <th>Kifizetés</th>
+                </tr>
+              </thead>
+              <tbody id="breakdown"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
-      <section class="panel simulation">
-        <div class="eyebrow">A HÁZ EREDMÉNYE</div>
-        <h2>Sorsjegy szimuláció</h2>
-        <p class="intro">Állítsd be az eladást, és nézd meg, mennyi marad a kasszában a nyeremények kifizetése után.</p>
-        <div class="sale-inputs">
-          <label>ELADOTT DARABSZÁM<input id="quantity" type="number" min="1" max="1000000" step="1" value="100" /></label>
-          <label>DARABÁR ($)<input id="price" type="number" min="0" step="0.01" value="1100" /></label>
+      <section id="sample" class="tab-page panel" hidden>
+        <span class="eyebrow">A BEKÜLDÖTT KÉP ALAPJÁN</span>
+        <h2>Bronz 218 · eredeti és 100 jegyes minta</h2>
+        <p>
+          Az eredeti terv 6 000 000 sorsjegyre készült. A 100 jegyes minta
+          arányosítja a darabszámokat, majd a legnagyobb maradékok alapján egész
+          darabokat oszt ki, a nem nyerő jegyekkel együtt.
+        </p>
+        <div class="notice">
+          Ez közelítés: a ritka főnyeremények 0 darabot kapnak. Az eredeti
+          főnyeremény és kifizetési arány így nem marad meg pontosan.
         </div>
-        <div class="metrics">
-          <div><span>Bevétel</span><strong id="revenue">—</strong></div>
-          <div><span>Várható kifizetés</span><strong id="expectedPayout">—</strong></div>
-          <div class="wide"><span>Várható nettó eredmény</span><strong id="expectedNet">—</strong></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nyeremény (Ft)</th>
+                <th>Eredeti darab</th>
+                <th>100 jegyre (db)</th>
+                <th>Esély a mintában</th>
+              </tr>
+            </thead>
+            <tbody id="sampleRows"></tbody>
+          </table>
         </div>
-        <p class="hint" id="odds"></p>
-        <button id="simulate" class="primary run">▶ SZIMULÁCIÓ INDÍTÁSA</button>
-        <div id="result" hidden aria-live="polite">
-          <div class="result-heading"><h3>Szimuláció eredménye</h3><span id="runNumber"></span></div>
-          <div class="metrics">
-            <div><span>Tényleges kifizetés</span><strong id="actualPayout"></strong></div>
-            <div><span>Nyerő sorsjegyek</span><strong id="winners"></strong></div>
-            <div><span>Ház profitja</span><strong id="profit" class="positive"></strong></div>
-            <div><span>Ház vesztesége</span><strong id="loss" class="negative"></strong></div>
+        <p id="sampleSummary" class="hint"></p>
+        <div class="notice">
+          A mintát betöltve az összegek ugyanazok a számok maradnak, játékbeli $
+          egységben. Ez nem Ft–$ árfolyamváltás. A képen nincs jegyár; a saját,
+          szerkeszthető jegyáraddal számolunk.
+        </div>
+        <button id="loadSample" class="primary">
+          100 jegyes minta betöltése a saját beállításokba
+        </button>
+      </section>
+      <section id="game" class="tab-page panel" hidden>
+        <span class="eyebrow">AZ AKTUÁLIS SAJÁT BEÁLLÍTÁSAID</span>
+        <h2>Ezeket az értékeket írd a játékba</h2>
+        <div id="gameContent">
+          <div class="game-summary">
+            <div>Jegyár<strong id="gamePrice"></strong></div>
+            <div>Felső „Nyerési esély” mező<strong>100%</strong></div>
+            <div>Tényleges nyerési esély<strong id="gameChance"></strong></div>
           </div>
-          <table><thead><tr><th>Nyeremény</th><th>Darab</th><th>Kifizetés</th></tr></thead><tbody id="breakdown"></tbody></table>
-          <p class="hint">Minden kattintás új, véletlenszerű húzás. A várható érték sok ismétlés átlagát jelenti.</p>
+          <p>
+            A felső mező legyen 100%, a nyereménysorok esélye pedig az alábbi
+            százalék. A 0 darabos sorokat hagyd ki.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Összeg ($)</th>
+                  <th>Esély (%)</th>
+                  <th>Darab / 100 jegy</th>
+                </tr>
+              </thead>
+              <tbody id="gameRows"></tbody>
+            </table>
+          </div>
+          <div class="notice">
+            Ez a táblázat olyan játékhoz használható, amely a sorok százalékát
+            közvetlen esélyként kezeli, és a maradék esély nem nyer. Ha a játék
+            súlyként normalizálja a sorokat, külön 0 $ nyereménysort is adj
+            hozzá a maradék eséllyel. A játék kódja nélkül a működése nem
+            ellenőrizhető.
+          </div>
+          <h3>Fix csomag vagy külön húzás?</h3>
+          <p>
+            A százalékok külön húzásnál átlagokat jelentenek: 100 vásárlás
+            eredménye eltérhet a tervtől. Pontosan ezt a darabszámot egy
+            összekevert, 100 jegyes csomag biztosítja, visszatevés nélkül. Új
+            csomagot csak az előző elfogyása után kell létrehozni.
+          </p>
+          <h3>Másolható terv (JSON)</h3>
+          <pre id="gameConfig"></pre>
+          <button id="copy" class="primary">Terv másolása</button>
+          <button id="download" class="secondary">JSON letöltése</button>
+          <p class="hint">
+            A JSON egy megvalósítási minta; a játék saját konfigurációs
+            formátumához kell illeszteni.
+          </p>
         </div>
-        <button id="reopen" hidden>BEÁLLÍTÁSOK MEGNYITÁSA</button>
+        <p id="gameError" class="negative" hidden>
+          Előbb javítsd a saját beállításokat.
+        </p>
       </section>
     </main>
   </body>

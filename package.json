@@ -1,0 +1,13 @@
+{
+  "name": "sorsjegy-szimulator",
+  "version": "2.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node math.test.js && node ui.test.js",
+    "format": "prettier --write index.html style.css app.js math.js math.test.js ui.test.js README.md package.json"
+  },
+  "devDependencies": {
+    "jsdom": "29.1.1",
+    "prettier": "3.6.2"
+  }
+}

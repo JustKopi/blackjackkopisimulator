@@ -1,22 +1,39 @@
-# Sorsjegy szimulátor
+# Sorsjegy tervező
 
-Magyar nyelvű sorsjegybeállító és profit/veszteség szimulátor.
+Élő oldal: https://justkopi.github.io/blackjackkopisimulator/
 
-Az `index.html` közvetlenül megnyitható böngészőben, telepítés nélkül.
-A mentés az adott böngészőben tárolódik.
+100 jegyes csomagok tervezése, egész darabszámokkal és összegekkel.
+Az index.html közvetlenül megnyitható; nincs szükség telepítésre.
 
-## Számítás
+- Saját beállítások: nyereményösszeg és darabszám 100 jegyből, jegyár, eladás.
+- Minta: a beküldött Bronz 218 kép 6 000 000 jegyes terve és egészre osztott 100 jegyes közelítése.
+- Játékba másolható értékek: százalékok, nem nyerő esély, JSON másolás és letöltés.
 
-A nyeremény esélye = felső nyerési esély / 100 × nyereménysor esélye / 100.
-A fennmaradó esély nulla kifizetést jelent. A százalékokat nem normalizáljuk.
+## Matematika
 
-Várható kifizetés = darabszám × az összeg × esély szorzatok összege.
-Nettó eredmény = darabszám × darabár − kifizetés.
-Profit = max(0, nettó eredmény); veszteség = max(0, −nettó eredmény).
+A 100 jegyes csomagban 1 darab = 1% esély. A maradék jegy nem nyer.
+A mintát a legnagyobb maradékok módszere arányosítja, a nem nyerő jegyeket is beleértve.
+A ritka nyeremények így kieshetnek; az eredeti kifizetési arány nem marad meg pontosan.
+A mintában a forintos összegek változatlan számértékkel, játékbeli dollárként tölthetők be;
+ez nem devizaváltás. Az eredeti jegyár nem szerepel a beküldött képen.
 
-A szimuláció minden jegyhez külön véletlenszerű eredményt generál.
+A kerekített minta: 33 nyerő és 67 nem nyerő jegy, 65 000 teljes kifizetés.
+1100 játékbeli dolláros jegyárnál a teljes csomag profitja 45 000 dollár.
 
-## GitHub Pages
+Fix csomag módban Fisher–Yates keverés után visszatevés nélkül húzunk.
+Új csomag csak 100 húzás után készül. Egy teljes csomag kifizetése mindig a terv szerinti.
+Külön húzás módban a darabszámok közvetlen százalékos esélyek; 100 húzás eredménye változhat.
 
-A repóban: Settings → Pages → Deploy from a branch → main → / (root) → Save.
-A Pages felület által megadott webcímet elküldve bárki megnyithatja az alkalmazást.
+Bevétel = eladott darab × jegyár.
+Tervezett kifizetés = eladott darab / 100 × csomagkifizetés.
+Profit = max(0, bevétel − kifizetés); veszteség = max(0, kifizetés − bevétel).
+A részcsomagok várható pénzértékeit csak a megjelenítés kerekíti egész dollárra.
+
+A játékbeli százalékok a felső nyerési esély 100%-os beállítását feltételezik.
+Ha a játék súlyokat normalizál, külön nulla kifizetésű sort igényel.
+A JSON szemléltető terv, nem egy ismeretlen játékhoz ellenőrzött konfiguráció.
+
+## Ellenőrzés
+
+`npm install` után `npm test` ellenőrzi a matematikát és a felület működését.
+A függőségek kizárólag fejlesztéshez és teszteléshez kellenek; az oldal továbbra is statikus.
