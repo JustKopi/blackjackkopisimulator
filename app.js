@@ -2,15 +2,24 @@ const byId = (id) => document.getElementById(id);
 const integer = (value) =>
   new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 0 }).format(value);
 const money = (value) => `${integer(value)} $`;
-const sample = LotteryMath.scaleSample();
 const defaults = {
+  winChance: 100,
   quantity: 100,
   price: 1100,
-  mode: "pack",
-  prizes: sample
-    .filter((prize) => prize.amount > 0 && prize.count > 0)
-    .map(({ amount, count }) => ({ amount, count })),
+  prizes: [
+    { amount: 50000, chance: 0.00001 },
+    { amount: 20000, chance: 0.0001 },
+    { amount: 10000, chance: 0.01 },
+    { amount: 2000, chance: 15 },
+    { amount: 1000, chance: 14 },
+  ],
 };
+const sample = LotteryMath.sourcePrizes.map(({ amount, count }) => ({
+  amount,
+  chance: (count / LotteryMath.SOURCE_SIZE) * 100,
+}));
+const percent = (value) =>
+  `${new Intl.NumberFormat("hu-HU", { maximumFractionDigits: 10 }).format(value)}%`;
 let runs = 0;
 
 function notify(message, error = false) {
@@ -29,18 +38,18 @@ function showTab(name) {
   });
 }
 
-function addRow(prize = { amount: 1000, count: 0 }) {
+function addRow(prize = { amount: 1000, chance: 0 }) {
   const row = document.createElement("div");
   row.className = "prize-row";
   for (const [key, label] of [
     ["amount", "Nyeremény dollárban"],
-    ["count", "Darab 100 jegyből"],
+    ["chance", "Nyeremény esélye százalékban"],
   ]) {
     const input = document.createElement("input");
     input.type = "number";
     input.min = key === "amount" ? "1" : "0";
     input.max = key === "amount" ? "1000000000" : "100";
-    input.step = "1";
+    input.step = "any";
     input.value = prize[key];
     input.dataset.key = key;
     input.setAttribute("aria-label", label);
@@ -59,7 +68,8 @@ function addRow(prize = { amount: 1000, count: 0 }) {
 }
 
 function load(config) {
-  for (const id of ["quantity", "price", "mode"]) byId(id).value = config[id];
+  for (const id of ["quantity", "price", "winChance"])
+    byId(id).value = config[id];
   byId("rows").replaceChildren();
   config.prizes.forEach(addRow);
   refresh();
@@ -69,10 +79,10 @@ function readConfig() {
   return {
     quantity: byId("quantity").valueAsNumber,
     price: byId("price").valueAsNumber,
-    mode: byId("mode").value,
+    winChance: byId("winChance").valueAsNumber,
     prizes: [...document.querySelectorAll(".prize-row")].map((row) => ({
       amount: row.querySelector('[data-key="amount"]').valueAsNumber,
-      count: row.querySelector('[data-key="count"]').valueAsNumber,
+      chance: row.querySelector('[data-key="chance"]').valueAsNumber,
     })),
   };
 }
@@ -92,19 +102,13 @@ function gamePlan(config) {
   const forecast = LotteryMath.expected(config);
   return {
     ticketPrice: config.price,
-    packSize: 100,
-    globalWinChancePercent: 100,
-    actualWinChancePercent: forecast.winners,
-    losingTicketsPerPack: forecast.losers,
+    globalWinChancePercent: config.winChance,
+    actualWinChancePercent: forecast.effectiveChance,
     zeroPayoutChancePercent: forecast.losers,
-    packPayout: forecast.packPayout,
-    prizes: config.prizes
-      .filter((prize) => prize.count > 0)
-      .map((prize) => ({
-        amount: prize.amount,
-        ticketsPerPack: prize.count,
-        chancePercent: prize.count,
-      })),
+    prizes: config.prizes.map((prize) => ({
+      amount: prize.amount,
+      chancePercent: prize.chance,
+    })),
   };
 }
 
@@ -112,35 +116,27 @@ function refresh() {
   byId("result").hidden = true;
   byId("gameConfig").textContent = "";
   const config = readConfig();
-  byId("modeNote").textContent =
-    config.mode === "pack"
-      ? "Minden új csomag 100 összekevert jegy. Teljes csomagnál a darabszám és a kifizetés mindig a terv szerint alakul."
-      : "Minden jegy új, független húzás. A százalékok hosszú távú átlagok; 100 jegynél a profit és a veszteség változhat.";
   try {
     const forecast = LotteryMath.expected(config);
-    byId("total").textContent = `${forecast.winners} db`;
-    byId("losers").textContent = `${forecast.losers} db`;
+    byId("total").textContent = percent(forecast.total);
+    byId("losers").textContent = percent(forecast.losers);
     byId("revenue").textContent = money(forecast.revenue);
     byId("expectedPayout").textContent = money(forecast.payout);
     byId("expectedProfit").textContent = money(forecast.profit);
     byId("expectedLoss").textContent = money(forecast.loss);
     byId("gamePrice").textContent = money(config.price);
-    byId("gameChance").textContent = `${forecast.winners}%`;
+    byId("gameGlobalChance").textContent = percent(config.winChance);
+    byId("gameChance").textContent = percent(forecast.effectiveChance);
     byId("gameRows").replaceChildren();
     config.prizes
-      .filter((prize) => prize.count > 0)
+      .filter((prize) => prize.chance > 0)
       .forEach((prize) => {
         tableRow(byId("gameRows"), [
           money(prize.amount),
-          `${prize.count}%`,
-          `${prize.count} db`,
+          percent(prize.chance),
         ]);
       });
-    tableRow(byId("gameRows"), [
-      "Nem nyer · 0 $",
-      `${forecast.losers}%`,
-      `${forecast.losers} db`,
-    ]);
+    tableRow(byId("gameRows"), ["Nem nyer · 0 $", percent(forecast.losers)]);
     byId("gameConfig").textContent = JSON.stringify(gamePlan(config), null, 2);
     byId("gameContent").hidden = false;
     byId("gameError").hidden = true;
@@ -167,31 +163,16 @@ function refresh() {
 }
 
 sample.forEach((prize) => {
-  tableRow(
-    byId("sampleRows"),
-    [
-      prize.amount === 0 ? "Nem nyer" : `${integer(prize.amount)} Ft`,
-      `${integer(prize.originalCount)} db`,
-      `${prize.count} db`,
-      `${prize.count}%`,
-    ],
-    prize.count === 0,
-  );
+  tableRow(byId("sampleRows"), [money(prize.amount), percent(prize.chance)]);
 });
-const sourcePayout = LotteryMath.sourcePrizes.reduce(
-  (sum, prize) => sum + prize.amount * prize.count,
-  0,
-);
-const samplePayout = sample.reduce(
-  (sum, prize) => sum + prize.amount * prize.count,
-  0,
-);
+const sampleChance = sample.reduce((sum, prize) => sum + prize.chance, 0);
+tableRow(byId("sampleRows"), ["Nem nyer · 0 $", percent(100 - sampleChance)]);
 byId("sampleSummary").textContent =
-  `Eredeti összkifizetés: ${integer(sourcePayout)} Ft. A 100 jegyes minta kifizetése: ${integer(samplePayout)} Ft. Az eredeti jegyár nélkül az eredeti profit nem számolható.`;
+  `Felső nyerési esély: 100%. Tényleges nyerési esély: ${percent(sampleChance)}. Az eredeti arányok kerekítés nélkül kerülnek a szimulációba.`;
 
 let initial = defaults;
 try {
-  const saved = JSON.parse(localStorage.getItem("lottery-settings-v2"));
+  const saved = JSON.parse(localStorage.getItem("lottery-settings"));
   if (saved) {
     LotteryMath.validate(saved);
     initial = saved;
@@ -204,7 +185,7 @@ document.querySelectorAll("[data-tab]").forEach((button) => {
   button.addEventListener("click", () => showTab(button.dataset.tab));
 });
 byId("planner").addEventListener("input", refresh);
-byId("mode").addEventListener("change", refresh);
+
 byId("add").addEventListener("click", () => {
   addRow();
   refresh();
@@ -213,7 +194,7 @@ byId("save").addEventListener("click", () => {
   try {
     const config = readConfig();
     LotteryMath.validate(config);
-    localStorage.setItem("lottery-settings-v2", JSON.stringify(config));
+    localStorage.setItem("lottery-settings", JSON.stringify(config));
     notify("Beállítások elmentve ebben a böngészőben.");
   } catch {
     notify(
@@ -227,7 +208,8 @@ byId("loadSample").addEventListener("click", () => {
     ...defaults,
     price: byId("price").valueAsNumber,
     quantity: 100,
-    mode: "pack",
+    winChance: 100,
+    prizes: sample,
   });
   showTab("planner");
   notify(
@@ -242,11 +224,10 @@ byId("simulate").addEventListener("click", () => {
     `${integer(result.winners)} / ${integer(config.quantity)}`;
   byId("profit").textContent = money(result.profit);
   byId("loss").textContent = money(result.loss);
-  byId("runNumber").textContent =
-    `#${++runs} · ${config.mode === "pack" ? "Fix csomag" : "Külön húzások"}`;
+  byId("runNumber").textContent = `#${++runs} · Külön húzások`;
   byId("breakdown").replaceChildren();
   config.prizes.forEach((prize, index) => {
-    if (prize.count > 0) {
+    if (prize.chance > 0) {
       tableRow(byId("breakdown"), [
         money(prize.amount),
         integer(result.counts[index]),
@@ -279,7 +260,25 @@ byId("download").addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "sorsjegy-100-terv.json";
+  link.download = "sorsjegy-terv.json";
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
+
+function runSample() {
+  const config = {
+    winChance: 100,
+    quantity: byId("sampleQuantity").valueAsNumber,
+    price: byId("samplePrice").valueAsNumber,
+    prizes: sample,
+  };
+  try {
+    const forecast = LotteryMath.expected(config);
+    const result = LotteryMath.simulate(config);
+    byId("sampleResult").textContent =
+      `Bevétel: ${money(forecast.revenue)} · Várható kifizetés: ${money(forecast.payout)} · Tényleges kifizetés: ${money(result.payout)} · Nyerő: ${integer(result.winners)} / ${integer(config.quantity)} · Ház profitja: ${money(result.profit)} · Ház vesztesége: ${money(result.loss)}`;
+  } catch (error) {
+    byId("sampleResult").textContent = error.message;
+  }
+}
+byId("sampleSimulate").addEventListener("click", runSample);

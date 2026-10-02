@@ -1,5 +1,7 @@
+/* Each prize percentage is conditional on passing the global chance gate.
+ * The remaining probability always pays zero; percentages are never normalized.
+ */
 (function (root) {
-  const PACK_SIZE = 100;
   const SOURCE_SIZE = 6000000;
   const sourcePrizes = [
     { amount: 50000000, count: 1 },
@@ -18,142 +20,89 @@
     { amount: 1000, count: 960000 },
   ];
 
-  function scaleSample() {
-    const winningCount = sourcePrizes.reduce(
-      (sum, prize) => sum + prize.count,
-      0,
-    );
-    const source = [
-      ...sourcePrizes,
-      { amount: 0, count: SOURCE_SIZE - winningCount },
-    ];
-    const scaled = source.map((prize, index) => {
-      const numerator = prize.count * PACK_SIZE;
-      return {
-        amount: prize.amount,
-        originalCount: prize.count,
-        count: Math.floor(numerator / SOURCE_SIZE),
-        remainder: numerator % SOURCE_SIZE,
-        index,
-      };
-    });
-    const remaining =
-      PACK_SIZE - scaled.reduce((sum, prize) => sum + prize.count, 0);
-    const ranked = [...scaled].sort(
-      (a, b) => b.remainder - a.remainder || a.index - b.index,
-    );
-    for (let index = 0; index < remaining; index++) ranked[index].count++;
-    return scaled.map(({ amount, originalCount, count }) => ({
-      amount,
-      originalCount,
-      count,
-    }));
-  }
-
   function validate(config) {
+    if (
+      !Number.isFinite(config.winChance) ||
+      config.winChance < 0 ||
+      config.winChance > 100
+    ) {
+      throw new Error("A nyerési esély 0 és 100% között legyen.");
+    }
     if (
       !Number.isInteger(config.quantity) ||
       config.quantity < 1 ||
-      config.quantity > 100000
+      config.quantity > 1000000
     ) {
-      throw new Error(
-        "Az eladott jegyek száma 1 és 100 000 közötti egész szám legyen.",
-      );
+      throw new Error("A darabszám 1 és 1 000 000 közötti egész szám legyen.");
     }
     if (
-      !Number.isInteger(config.price) ||
+      !Number.isFinite(config.price) ||
       config.price < 0 ||
-      config.price > 1000000000
+      config.price > 1e12
     ) {
-      throw new Error("A jegyár 0 és 1 000 000 000 közötti egész szám legyen.");
+      throw new Error("A darabár 0 és 1 000 000 000 000 $ között legyen.");
     }
-    if (!["pack", "independent"].includes(config.mode))
-      throw new Error("Érvénytelen szimulációs mód.");
-    if (!Array.isArray(config.prizes))
-      throw new Error("Hiányzó nyereménylista.");
-    let winners = 0;
     for (const prize of config.prizes) {
       if (
-        !Number.isInteger(prize.amount) ||
-        prize.amount < 1 ||
-        prize.amount > 1000000000 ||
-        !Number.isInteger(prize.count) ||
-        prize.count < 0 ||
-        prize.count > PACK_SIZE
+        !Number.isFinite(prize.amount) ||
+        prize.amount < 0 ||
+        prize.amount > 1e12 ||
+        !Number.isFinite(prize.chance) ||
+        prize.chance < 0 ||
+        prize.chance > 100
       ) {
         throw new Error(
-          "A nyeremény pozitív egész összeg, a darabszám 0 és 100 közötti egész szám legyen.",
+          "Minden összeg legyen 0 és 1 000 000 000 000 $ között, az esély pedig 0 és 100% között.",
         );
       }
-      winners += prize.count;
     }
-    if (winners > PACK_SIZE)
+    const total = config.prizes.reduce((sum, prize) => sum + prize.chance, 0);
+    if (total > 100)
       throw new Error(
-        "Egy 100 jegyes csomagban legfeljebb 100 nyerő jegy lehet.",
+        "A nyeremények összesített esélye nem lehet több 100%-nál.",
       );
-    return winners;
+    return total;
   }
 
   function expected(config) {
-    const winners = validate(config);
-    const packPayout = config.prizes.reduce(
-      (sum, prize) => sum + prize.amount * prize.count,
+    const total = validate(config);
+    const gate = config.winChance / 100;
+    const perTicket = config.prizes.reduce(
+      (sum, prize) => sum + ((prize.amount * prize.chance) / 100) * gate,
       0,
     );
     const revenue = config.quantity * config.price;
-    const payout = (packPayout * config.quantity) / PACK_SIZE;
-    const net = revenue - payout;
+    const payout = config.quantity * perTicket;
     return {
-      winners,
-      losers: PACK_SIZE - winners,
-      packPayout,
       revenue,
       payout,
-      net,
-      profit: Math.max(0, net),
-      loss: Math.max(0, -net),
+      net: revenue - payout,
+      total,
+      effectiveChance: total * gate,
+      winners: total * gate,
+      losers: 100 - total * gate,
+      profit: Math.max(0, revenue - payout),
+      loss: Math.max(0, payout - revenue),
     };
-  }
-
-  function makePack(config, random) {
-    const pack = [];
-    config.prizes.forEach((prize, index) => {
-      for (let count = 0; count < prize.count; count++) pack.push(index);
-    });
-    while (pack.length < PACK_SIZE) pack.push(-1);
-    for (let index = pack.length - 1; index > 0; index--) {
-      const target = Math.floor(random() * (index + 1));
-      [pack[index], pack[target]] = [pack[target], pack[index]];
-    }
-    return pack;
   }
 
   function simulate(config, random = Math.random) {
     const forecast = expected(config);
     const counts = config.prizes.map(() => 0);
-    let pack = [];
     let payout = 0;
     let winners = 0;
     for (let ticket = 0; ticket < config.quantity; ticket++) {
-      let selected = -1;
-      if (config.mode === "pack") {
-        if (ticket % PACK_SIZE === 0) pack = makePack(config, random);
-        selected = pack[ticket % PACK_SIZE];
-      } else {
-        const draw = Math.floor(random() * PACK_SIZE);
-        let cumulative = 0;
-        for (let index = 0; index < config.prizes.length; index++) {
-          cumulative += config.prizes[index].count;
-          if (draw < cumulative) {
-            selected = index;
-            break;
-          }
+      const draw = random() * 100;
+      let cumulative = 0;
+      for (let index = 0; index < config.prizes.length; index++) {
+        const prize = config.prizes[index];
+        cumulative += (prize.chance * config.winChance) / 100;
+        if (draw < cumulative) {
+          counts[index]++;
+          payout += prize.amount;
+          winners++;
+          break;
         }
-      }
-      if (selected !== -1) {
-        counts[selected]++;
-        payout += config.prizes[selected].amount;
-        winners++;
       }
     }
     const net = forecast.revenue - payout;
@@ -167,15 +116,7 @@
     };
   }
 
-  const api = {
-    PACK_SIZE,
-    SOURCE_SIZE,
-    sourcePrizes,
-    scaleSample,
-    validate,
-    expected,
-    simulate,
-  };
+  const api = { SOURCE_SIZE, sourcePrizes, validate, expected, simulate };
   if (typeof module !== "undefined") module.exports = api;
   else root.LotteryMath = api;
 })(globalThis);

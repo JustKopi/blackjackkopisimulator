@@ -3,23 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sorsjegy tervező · 100 darabos csomag</title>
-    <link rel="stylesheet" href="style.css?v=2" />
-    <script src="math.js?v=2" defer></script>
-    <script src="app.js?v=2" defer></script>
+    <title>Sorsjegy beállítások</title>
+    <link rel="stylesheet" href="style.css?v=3" />
+    <script src="math.js?v=3" defer></script>
+    <script src="app.js?v=3" defer></script>
   </head>
   <body>
     <main class="workspace">
       <header>
         <span class="eyebrow">SORSJEGY TERVEZŐ</span>
-        <h1>100 jegy. Egy átlátható terv.</h1>
-        <p>Add meg, melyik nyereményből hány darab legyen a csomagban.</p>
+        <h1>Nyerési esélyek és nyeremények.</h1>
+        <p>Állítsd be a százalékokat, ahogy a játékban.</p>
       </header>
       <nav class="tabs" aria-label="Oldalak">
         <button data-tab="planner" aria-current="page">
           Saját beállítások
         </button>
-        <button data-tab="sample">+ Minta · Bronz 218</button>
+        <button data-tab="sample">Valódi sorsjegy · Bronz 218</button>
         <button data-tab="game">Játékba másolható értékek</button>
       </nav>
       <p id="message" role="status" aria-live="polite"></p>
@@ -27,20 +27,29 @@
         <div class="layout">
           <section class="panel">
             <div class="section-heading">
-              <h2>Nyeremények 100 jegyre</h2>
+              <h2>Nyeremények és esélyek</h2>
               <button id="add">+ Új sor</button>
             </div>
             <p class="hint">
-              1 darab a csomagban = 1% esély. A maradék jegy nem nyer.
+              A felső nyerési esély minden sor százalékát megszorozza. A
+              fennmaradó esély nem nyer.
             </p>
+            <label
+              >Felső nyerési esély (%)<input
+                id="winChance"
+                type="number"
+                min="0"
+                max="100"
+                step="any"
+                value="100"
+            /></label>
             <div class="column-labels">
-              <span>Nyeremény ($)</span><span>Darab / 100 jegy</span
-              ><span></span>
+              <span>Nyeremény ($)</span><span>Esély (%)</span><span></span>
             </div>
             <div id="rows"></div>
             <div class="pack-summary">
-              <span>Nyerő: <strong id="total"></strong></span
-              ><span>Nem nyerő: <strong id="losers"></strong></span>
+              <span>Sorok összesen: <strong id="total"></strong></span
+              ><span>Nem nyer: <strong id="losers"></strong></span>
             </div>
             <button id="save" class="secondary">Beállítások mentése</button>
           </section>
@@ -61,7 +70,7 @@
                   id="quantity"
                   type="number"
                   min="1"
-                  max="100000"
+                  max="1000000"
                   step="1"
                   value="100"
               /></label>
@@ -82,21 +91,8 @@
               </div>
             </div>
             <p class="hint">
-              Teljes 100-as csomagoknál a terv pontos. Részcsomagnál átlagos
-              eredmény, egész dollárra kerekítve.
+              Minden jegy független húzás. A várható eredmény hosszú távú átlag.
             </p>
-            <label
-              >Szimuláció módja
-              <select id="mode">
-                <option value="pack">
-                  100-as csomag · rögzített nyeremények
-                </option>
-                <option value="independent">
-                  Játékbeli húzás · minden jegy külön
-                </option>
-              </select>
-            </label>
-            <p id="modeNote" class="hint"></p>
             <button id="simulate" class="primary run">
               Szimuláció indítása
             </button>
@@ -137,38 +133,59 @@
         </section>
       </section>
       <section id="sample" class="tab-page panel" hidden>
-        <span class="eyebrow">A BEKÜLDÖTT KÉP ALAPJÁN</span>
-        <h2>Bronz 218 · eredeti és 100 jegyes minta</h2>
+        <span class="eyebrow">VALÓDI ESÉLYEK A JÁTÉKBAN</span>
+        <h2>Bronz 218 · korlátlan játékbeli húzás</h2>
         <p>
-          Az eredeti terv 6 000 000 sorsjegyre készült. A 100 jegyes minta
-          arányosítja a darabszámokat, majd a legnagyobb maradékok alapján egész
-          darabokat oszt ki, a nem nyerő jegyekkel együtt.
+          Az eredeti 6 000 000 jegyes eloszlásból számolt pontos százalékokkal
+          minden jegy függetlenül húzható. Nincs elfogyó készlet: hosszú távon
+          az IRL arányokat követi, a ritka főnyereményekkel együtt.
         </p>
-        <div class="notice">
-          Ez közelítés: a ritka főnyeremények 0 darabot kapnak. Az eredeti
-          főnyeremény és kifizetési arány így nem marad meg pontosan.
-        </div>
+        <p>
+          A felső nyerési esély 100%. Az összegek az eredeti számértékkel,
+          játékbeli $ egységben szerepelnek.
+        </p>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Nyeremény (Ft)</th>
-                <th>Eredeti darab</th>
-                <th>100 jegyre (db)</th>
-                <th>Esély a mintában</th>
+                <th>Nyeremény ($)</th>
+                <th>Esély (%)</th>
               </tr>
             </thead>
             <tbody id="sampleRows"></tbody>
           </table>
         </div>
         <p id="sampleSummary" class="hint"></p>
-        <div class="notice">
-          A mintát betöltve az összegek ugyanazok a számok maradnak, játékbeli $
-          egységben. Ez nem Ft–$ árfolyamváltás. A képen nincs jegyár; a saját,
-          szerkeszthető jegyáraddal számolunk.
+        <div class="sale-inputs">
+          <label
+            >Játékbeli jegyár ($)<input
+              id="samplePrice"
+              type="number"
+              min="0"
+              step="any"
+              value="1100"
+          /></label>
+          <label
+            >Jegyek a futtatásban<input
+              id="sampleQuantity"
+              type="number"
+              min="1"
+              max="1000000"
+              step="1"
+              value="100"
+          /></label>
         </div>
-        <button id="loadSample" class="primary">
-          100 jegyes minta betöltése a saját beállításokba
+        <p class="hint">
+          Az eredeti jegyár nincs megadva; itt a saját játékbeli árral
+          számolunk. Egy futtatás legfeljebb egymillió jegy, és újraindítható
+          korlátlanul.
+        </p>
+        <button id="sampleSimulate" class="primary">
+          Bronz szimuláció indítása
+        </button>
+        <p id="sampleResult" aria-live="polite"></p>
+        <button id="loadSample" class="secondary">
+          Bronz százalékok betöltése a saját beállításokba
         </button>
       </section>
       <section id="game" class="tab-page panel" hidden>
@@ -177,12 +194,14 @@
         <div id="gameContent">
           <div class="game-summary">
             <div>Jegyár<strong id="gamePrice"></strong></div>
-            <div>Felső „Nyerési esély” mező<strong>100%</strong></div>
+            <div>
+              Felső „Nyerési esély” mező<strong id="gameGlobalChance"></strong>
+            </div>
             <div>Tényleges nyerési esély<strong id="gameChance"></strong></div>
           </div>
           <p>
-            A felső mező legyen 100%, a nyereménysorok esélye pedig az alábbi
-            százalék. A 0 darabos sorokat hagyd ki.
+            A felső mezőt és a nyereménysorok százalékait az alábbi értékekre
+            állítsd.
           </p>
           <div class="table-wrap">
             <table>
@@ -190,7 +209,6 @@
                 <tr>
                   <th>Összeg ($)</th>
                   <th>Esély (%)</th>
-                  <th>Darab / 100 jegy</th>
                 </tr>
               </thead>
               <tbody id="gameRows"></tbody>
@@ -203,13 +221,6 @@
             hozzá a maradék eséllyel. A játék kódja nélkül a működése nem
             ellenőrizhető.
           </div>
-          <h3>Fix csomag vagy külön húzás?</h3>
-          <p>
-            A százalékok külön húzásnál átlagokat jelentenek: 100 vásárlás
-            eredménye eltérhet a tervtől. Pontosan ezt a darabszámot egy
-            összekevert, 100 jegyes csomag biztosítja, visszatevés nélkül. Új
-            csomagot csak az előző elfogyása után kell létrehozni.
-          </p>
           <h3>Másolható terv (JSON)</h3>
           <pre id="gameConfig"></pre>
           <button id="copy" class="primary">Terv másolása</button>
